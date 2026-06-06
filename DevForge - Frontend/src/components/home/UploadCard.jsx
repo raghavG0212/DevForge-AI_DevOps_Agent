@@ -26,33 +26,87 @@ const UploadCard = () => {
   const [loading, setIsLoading] = useState(false)
 
   const navigate = useNavigate()
+  const MAX_FILE_SIZE_MB = 250
   const dispatch = useDispatch()
   const fileInputRef = useRef(null)
+  const timeoutRefs = useRef([])
 
 
   const fakeWorkflowProgress = () => {
 
-    dispatch(setProgress(10))
-    dispatch(setCurrentStep(1))
-    dispatch(addLog('Project uploaded'))
+    timeoutRefs.current = []
 
-    setTimeout(() => {
-      dispatch(setProgress(35))
-      dispatch(setCurrentStep(2))
-      dispatch(addLog('Analyzing project'))
-    }, 1500)
+    const progressSteps = [
+      {
+        progress: 10,
+        step: 1,
+        log: 'Project uploaded',
+        delay: 0,
+      },
+      {
+        progress: 20,
+        step: 1,
+        log: 'Uploading project',
+        delay: 700,
+      },
+      {
+        progress: 30,
+        step: 2,
+        log: 'Extracting source files',
+        delay: 1400,
+      },
+      {
+        progress: 40,
+        step: 2,
+        log: 'Analyzing project structure',
+        delay: 2100,
+      },
+      {
+        progress: 50,
+        step: 3,
+        log: 'Scanning dependencies',
+        delay: 2800,
+      },
+      {
+        progress: 60,
+        step: 3,
+        log: 'Detecting technologies',
+        delay: 3500,
+      },
+      {
+        progress: 70,
+        step: 4,
+        log: 'Generating DevOps files',
+        delay: 4200,
+      },
+      {
+        progress: 80,
+        step: 4,
+        log: 'Preparing configurations',
+        delay: 4900,
+      },
+      {
+        progress: 90,
+        step: 4,
+        log: 'Finalizing output',
+        delay: 5600,
+      },
+    ]
 
-    setTimeout(() => {
-      dispatch(setProgress(65))
-      dispatch(setCurrentStep(3))
-      dispatch(addLog('Detecting stack'))
-    }, 3500)
+    progressSteps.forEach((item) => {
 
-    setTimeout(() => {
-      dispatch(setProgress(85))
-      dispatch(setCurrentStep(4))
-      dispatch(addLog('Generating files'))
-    }, 6000)
+      const timer = setTimeout(() => {
+
+        dispatch(setProgress(item.progress))
+        dispatch(setCurrentStep(item.step))
+        dispatch(addLog(item.log))
+
+      }, item.delay)
+
+      timeoutRefs.current.push(timer)
+
+    })
+
   }
 
   const handleDrag = (e) => {
@@ -91,7 +145,17 @@ const UploadCard = () => {
       return
     }
 
+    if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+
+      toast.error(
+        `ZIP file exceeds ${MAX_FILE_SIZE_MB} MB limit`
+      )
+
+      return
+    }
+
     setZipFile(file)
+
   }
 
   const handleAnalyze = async () => {
@@ -129,8 +193,10 @@ const UploadCard = () => {
         toast.error(response.error)
         return
       }
+      timeoutRefs.current.forEach(clearTimeout)
 
       dispatch(setProgress(100))
+      dispatch(setCurrentStep(4))
       dispatch(addLog('DevOps generation completed'))
 
       toast.success(
@@ -147,15 +213,20 @@ const UploadCard = () => {
         },
       })
 
-    } catch (error) {
+    }
+    catch (error) {
 
       console.log(error)
+
+      timeoutRefs.current.forEach(clearTimeout)
 
       toast.error(
         'Failed to analyze project'
       )
 
-    } finally {
+    }
+
+    finally {
 
       setIsLoading(false)
       dispatch(setLoading(false))
@@ -335,11 +406,37 @@ const UploadCard = () => {
             type="file"
             accept=".zip"
             hidden
-            onChange={(e) =>
-              setZipFile(
-                e.target.files?.[0] || null
-              )
-            }
+            onChange={(e) => {
+
+              const file = e.target.files?.[0]
+
+              if (!file) return
+
+              if (!file.name.endsWith('.zip')) {
+
+                toast.error(
+                  'Only ZIP files are supported'
+                )
+
+                e.target.value = ''
+
+                return
+              }
+
+              if (file.size > 250 * 1024 * 1024) {
+
+                toast.error(
+                  'ZIP file exceeds 250 MB limit'
+                )
+
+                e.target.value = ''
+
+                return
+              }
+
+              setZipFile(file)
+
+            }}
           />
 
           <div
